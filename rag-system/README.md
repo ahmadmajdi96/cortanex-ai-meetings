@@ -34,15 +34,15 @@ docker compose up -d --build
 Open:
 
 - API docs: http://localhost:5001/docs
-- Grafana: http://localhost:3001
+- Grafana, optional: http://localhost:3001
 - Prometheus: http://localhost:9090
 - MinIO console: http://localhost:9001
 
 The first run downloads the LLM, embedding model, and reranker into the `hf-cache` volume. That can take a while.
 
-## Requirements
+## Ubuntu GPU Host Requirements
 
-- Linux host recommended for NVIDIA GPU containers
+- Ubuntu host recommended for NVIDIA GPU containers
 - Recent NVIDIA driver for the RTX 4090
 - Docker Engine with Docker Compose
 - NVIDIA Container Toolkit configured for Docker
@@ -53,6 +53,20 @@ Check GPU visibility:
 
 ```bash
 docker run --rm --gpus all nvidia/cuda:12.9.0-base-ubuntu22.04 nvidia-smi
+```
+
+If your server resets Docker Hub pulls, this stack avoids Docker Hub for the main runtime services where practical:
+
+- MinIO from Quay
+- Qdrant from GitHub Container Registry
+- Prometheus from Quay
+- vLLM and retrieval GPU bases from NVIDIA NGC
+- Docker official images through Amazon ECR public mirror
+
+Grafana remains optional because the exact Grafana image is most reliably published on Docker Hub. Start it only when Docker Hub access works:
+
+```bash
+docker compose --profile observability up -d grafana
 ```
 
 ## API Usage

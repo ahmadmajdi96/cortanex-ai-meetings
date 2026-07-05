@@ -38,7 +38,7 @@ x-gpu: &gpu
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: public.ecr.aws/docker/library/postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-rag}
@@ -54,7 +54,7 @@ services:
     networks: [rag-net]
 
   redis:
-    image: redis:7-alpine
+    image: public.ecr.aws/docker/library/redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-change-me-redis-password}"]
     environment:
@@ -125,10 +125,11 @@ services:
     networks: [rag-net]
 
   llm:
-    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-latest}
+    image: ${VLLM_IMAGE:-nvcr.io/nvidia/vllm:25.09-py3}
     restart: unless-stopped
     ipc: host
     shm_size: "16gb"
+    entrypoint: ["python3", "-m", "vllm.entrypoints.openai.api_server"]
     command:
       - --model
       - ${LLM_MODEL:-Qwen/Qwen3-14B-AWQ}
@@ -219,7 +220,7 @@ services:
     networks: [rag-net]
 
   gateway:
-    image: nginx:1.27-alpine
+    image: public.ecr.aws/docker/library/nginx:1.27-alpine
     restart: unless-stopped
     ports:
       - "${GATEWAY_PORT:-5001}:80"
@@ -236,7 +237,7 @@ services:
     networks: [rag-net]
 
   prometheus:
-    image: prom/prometheus:v3.4.2
+    image: quay.io/prometheus/prometheus:v3.4.2
     restart: unless-stopped
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -250,6 +251,7 @@ services:
 
   grafana:
     image: grafana/grafana:12.0.2
+    profiles: ["observability"]
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-grafana-password}
