@@ -1,7 +1,7 @@
 .DS_Store
 .env
 .env.bak
-.jitsi-meet-cfg/
+.jitsi-meet-cfg*/
 node_modules/
 npm-debug.log*
 yarn-debug.log*

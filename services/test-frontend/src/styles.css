@@ -1,0 +1,267 @@
+:root {
+  color: #15202b;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #eef3f6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.appShell {
+  display: grid;
+  grid-template-columns: minmax(320px, 400px) 1fr;
+  min-height: 100vh;
+}
+
+.controlPane {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  background: #ffffff;
+  border-right: 1px solid #d9e3e8;
+  overflow-y: auto;
+}
+
+.brandHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #d9e3e8;
+}
+
+.brandHeader img {
+  width: 72px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.brandHeader p,
+.meetingTopbar p {
+  margin: 0 0 3px;
+  color: #60727f;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.brandHeader h1,
+.meetingTopbar h2 {
+  margin: 0;
+  color: #0b2533;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.setupForm {
+  display: grid;
+  gap: 14px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: #344653;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+label span,
+.panelTitle,
+.successMessage {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  color: #13232c;
+  background: #f8fbfc;
+  border: 1px solid #cbd8de;
+  border-radius: 8px;
+  outline: none;
+}
+
+input:focus,
+select:focus {
+  border-color: #16a7b8;
+  box-shadow: 0 0 0 3px rgba(22, 167, 184, 0.14);
+}
+
+.splitFields {
+  display: grid;
+  grid-template-columns: 1fr 132px;
+  gap: 12px;
+}
+
+.primaryButton,
+.secondaryButton,
+.secondaryLink,
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 10px 13px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.primaryButton {
+  color: #05272e;
+  background: #a8d91d;
+  border-color: #93c017;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.secondaryButton,
+.secondaryLink,
+.iconButton {
+  color: #0b5560;
+  background: #eefafa;
+  border-color: #b9e5e8;
+}
+
+.sharePanel {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid #d9e3e8;
+}
+
+.panelTitle h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.errorMessage {
+  margin: 0;
+  padding: 11px 12px;
+  color: #8a1e1e;
+  background: #fff0f0;
+  border: 1px solid #ffc9c9;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.successMessage {
+  margin: 0;
+  color: #355b12;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.meetingPane {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+  background: #eef3f6;
+}
+
+.meetingTopbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: #f9fbfc;
+  border-bottom: 1px solid #d9e3e8;
+}
+
+.meetingTopbar h2 {
+  overflow-wrap: anywhere;
+  font-size: 18px;
+}
+
+.meetingFrameWrap {
+  min-height: 0;
+  padding: 14px;
+}
+
+.meetingFrameWrap iframe {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 94px);
+  min-height: 620px;
+  background: #071826;
+  border: 1px solid #cbd8de;
+  border-radius: 8px;
+}
+
+.emptyState {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 620px;
+  gap: 10px;
+  color: #425664;
+  background: #f9fbfc;
+  border: 1px dashed #b9c9d1;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.emptyState h2,
+.emptyState p {
+  margin: 0;
+}
+
+.emptyState h2 {
+  color: #0b2533;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 920px) {
+  .appShell {
+    grid-template-columns: 1fr;
+  }
+
+  .controlPane {
+    border-right: 0;
+    border-bottom: 1px solid #d9e3e8;
+  }
+
+  .meetingTopbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .meetingFrameWrap iframe,
+  .emptyState {
+    min-height: 540px;
+  }
+}

@@ -553,6 +553,23 @@ services:
         networks:
             meet.jitsi:
 
+    # Local React page for testing the token broker and embedded Jitsi meeting UI.
+    test-frontend:
+        build:
+            context: ./services/test-frontend
+        image: cortanex-ai/jitsi-test-frontend:latest
+        restart: ${RESTART_POLICY:-unless-stopped}
+        ports:
+            - '127.0.0.1:${TEST_FRONTEND_PORT:-5174}:5174'
+        environment:
+            - VITE_TOKEN_ENDPOINT=${VITE_TOKEN_ENDPOINT:-/api/jitsi/meetings/token}
+            - VITE_DEFAULT_MEETING_ID=${VITE_DEFAULT_MEETING_ID:-cortanex-demo-room}
+        depends_on:
+            - token-service
+            - web
+        networks:
+            meet.jitsi:
+
 # Custom network so all services can communicate using a FQDN
 networks:
     meet.jitsi:

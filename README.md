@@ -88,6 +88,28 @@ React app -> Cortanex backend -> token-service -> Jitsi iframe
 
 Do not expose `JWT_APP_SECRET` to React.
 
+## Local Test Frontend
+
+Run the full local test stack:
+
+```bash
+docker compose --env-file compose.local.env up -d --build web prosody jicofo jvb token-service test-frontend
+```
+
+Open:
+
+```text
+http://localhost:5174
+```
+
+The test page is separate from the Jitsi iframe. It sends demo signed-user headers to `token-service`, receives a room JWT, and loads the meeting from `http://localhost:8010`.
+
+Stop the local test stack:
+
+```bash
+docker compose --env-file compose.local.env down
+```
+
 ## Signed User Data
 
 `token-service` reads the signed app user token from:
