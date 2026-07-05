@@ -1,0 +1,22 @@
+// Cortanex AI defaults appended to generated interface_config.js at container boot.
+interfaceConfig.APP_NAME = 'Cortanex AI Meetings';
+interfaceConfig.NATIVE_APP_NAME = 'Cortanex AI';
+interfaceConfig.PROVIDER_NAME = 'Cortanex AI';
+interfaceConfig.DEFAULT_LOGO_URL = 'images/cortanex-logo.png';
+interfaceConfig.DEFAULT_WELCOME_PAGE_LOGO_URL = 'images/cortanex-logo.png';
+interfaceConfig.BRAND_WATERMARK_LINK = 'https://cortanexai.com';
+interfaceConfig.JITSI_WATERMARK_LINK = 'https://cortanexai.com';
+interfaceConfig.SHOW_BRAND_WATERMARK = false;
+interfaceConfig.SHOW_JITSI_WATERMARK = false;
+interfaceConfig.SHOW_POWERED_BY = false;
+interfaceConfig.SHOW_WATERMARK_FOR_GUESTS = false;
+interfaceConfig.SHOW_PROMOTIONAL_CLOSE_PAGE = false;
+interfaceConfig.DISPLAY_WELCOME_FOOTER = false;
+interfaceConfig.DISPLAY_WELCOME_PAGE_ADDITIONAL_CARD = false;
+interfaceConfig.DISPLAY_WELCOME_PAGE_CONTENT = false;
+interfaceConfig.DISPLAY_WELCOME_PAGE_TOOLBAR_ADDITIONAL_CONTENT = false;
+interfaceConfig.HIDE_DEEP_LINKING_LOGO = true;
+interfaceConfig.MOBILE_APP_PROMO = false;
+interfaceConfig.RECENT_LIST_ENABLED = false;
+interfaceConfig.SUPPORT_URL = 'https://cortanexai.com';
+interfaceConfig.DEFAULT_BACKGROUND = '#071826';

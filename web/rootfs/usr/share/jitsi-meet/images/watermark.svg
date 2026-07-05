@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="92" viewBox="0 0 320 92" role="img" aria-label="Cortanex AI">
+  <defs>
+    <linearGradient id="cortanex-gradient" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#16b8c9"/>
+      <stop offset="1" stop-color="#a8d91d"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="92" rx="14" fill="#071826"/>
+  <circle cx="48" cy="46" r="27" fill="none" stroke="url(#cortanex-gradient)" stroke-width="9"/>
+  <path d="M63 28l30 18-30 18" fill="none" stroke="#a8d91d" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="112" y="41" fill="#f4feff" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Cortanex</text>
+  <text x="112" y="66" fill="#16b8c9" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">AI Meetings</text>
+</svg>

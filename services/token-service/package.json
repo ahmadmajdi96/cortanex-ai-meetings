@@ -1,0 +1,15 @@
+{
+  "name": "@cortanex/jitsi-token-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "JWT broker for Cortanex AI self-hosted Jitsi meetings.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "check": "node --check src/server.js && node --check test/token.test.js",
+    "test": "node --test"
+  }
+}

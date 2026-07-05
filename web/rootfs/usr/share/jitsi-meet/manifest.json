@@ -1,0 +1,20 @@
+{
+  "name": "Cortanex AI Meetings",
+  "short_name": "Cortanex AI",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#071826",
+  "theme_color": "#071826",
+  "icons": [
+    {
+      "src": "images/cortanex-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "images/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

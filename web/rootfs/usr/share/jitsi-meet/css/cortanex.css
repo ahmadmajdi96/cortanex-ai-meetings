@@ -1,0 +1,32 @@
+:root {
+    --cortanex-navy: #071826;
+    --cortanex-panel: #0e2736;
+    --cortanex-cyan: #16b8c9;
+    --cortanex-lime: #a8d91d;
+}
+
+body {
+    background: var(--cortanex-navy);
+}
+
+.watermark,
+.leftwatermark,
+.rightwatermark {
+    display: none !important;
+}
+
+.prejoin-preview-dropdown-container,
+.premeeting-screen,
+.welcome {
+    background-color: var(--cortanex-navy) !important;
+}
+
+.toolbox-content button[aria-pressed='true'],
+.toolbox-button[aria-pressed='true'] {
+    outline-color: var(--cortanex-cyan) !important;
+}
+
+.subject,
+.conference-timer {
+    color: #eefcff !important;
+}
