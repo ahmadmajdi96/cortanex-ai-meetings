@@ -110,6 +110,44 @@ Stop the local test stack:
 docker compose --env-file compose.local.env down
 ```
 
+## IP Address Test Access
+
+For a server at `135.181.40.73`, copy the IP example and replace every `replace-this-*` value with generated secrets:
+
+```bash
+cp compose.ip.env.example compose.ip.env
+openssl rand -hex 32
+```
+
+Start the stack:
+
+```bash
+docker compose --env-file compose.ip.env up -d --build web prosody jicofo jvb token-service test-frontend
+```
+
+Open the test UI:
+
+```text
+http://135.181.40.73:5174
+```
+
+Open Jitsi directly:
+
+```text
+https://135.181.40.73:8443
+```
+
+Because this is IP-only HTTPS, the browser will show a certificate warning. Accept it once before using the embedded meeting page. For real users, point a domain such as `meet.cortanexai.com` to `135.181.40.73` and use the production `.env` with Let's Encrypt.
+
+Open these firewall ports on the server:
+
+```text
+5174/tcp for the test frontend
+8080/tcp for local HTTP fallback
+8443/tcp for Jitsi HTTPS
+10000/udp for Jitsi media
+```
+
 ## Signed User Data
 
 `token-service` reads the signed app user token from:
