@@ -1,0 +1,277 @@
+name: ${COMPOSE_PROJECT_NAME:-mohkam-rag}
+
+x-common-env: &common-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rag}:${POSTGRES_PASSWORD:-change-me-postgres-password}@postgres:5432/${POSTGRES_DB:-rag}
+  REDIS_URL: redis://:${REDIS_PASSWORD:-change-me-redis-password}@redis:6379/0
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-ragadmin}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-me-minio-password}
+  MINIO_BUCKET: rag-documents
+  QDRANT_URL: http://qdrant:6333
+  QDRANT_API_KEY: ${QDRANT_API_KEY:-change-me-qdrant-api-key}
+  RAG_COLLECTION: ${RAG_COLLECTION:-rag_chunks}
+  RAG_API_KEYS: ${RAG_API_KEYS:-change-me-rag-api-key}
+  RAG_DEFAULT_TENANT: ${RAG_DEFAULT_TENANT:-default}
+  RAG_ALLOWED_ORIGINS: ${RAG_ALLOWED_ORIGINS:-*}
+  RAG_MAX_UPLOAD_MB: ${RAG_MAX_UPLOAD_MB:-250}
+  RAG_CHUNK_TOKENS: ${RAG_CHUNK_TOKENS:-750}
+  RAG_CHUNK_OVERLAP_TOKENS: ${RAG_CHUNK_OVERLAP_TOKENS:-120}
+  RAG_TOP_K: ${RAG_TOP_K:-24}
+  RAG_RERANK_TOP_N: ${RAG_RERANK_TOP_N:-8}
+  RAG_SCORE_THRESHOLD: ${RAG_SCORE_THRESHOLD:-0.15}
+  RAG_QUERY_TIMEOUT_SECONDS: ${RAG_QUERY_TIMEOUT_SECONDS:-180}
+  EMBEDDING_BASE_URL: http://retrieval-models:8000
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-m3}
+  EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
+  RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+  LLM_BASE_URL: http://llm:8000/v1
+  LLM_MODEL: ${LLM_SERVED_MODEL_NAME:-local-rag-llm}
+
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rag}
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres-password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [rag-net]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-change-me-redis-password}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change-me-redis-password}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [rag-net]
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-ragadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-minio-password}
+    ports:
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [rag-net]
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.0
+    restart: unless-stopped
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-change-me-qdrant-api-key}
+      QDRANT__LOG_LEVEL: INFO
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -H 'api-key: ${QDRANT_API_KEY:-change-me-qdrant-api-key}' http://localhost:6333/readyz >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [rag-net]
+
+  retrieval-models:
+    build:
+      context: ./services/retrieval
+    restart: unless-stopped
+    environment:
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-m3}
+      RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+      RETRIEVAL_DEVICE: ${RETRIEVAL_DEVICE:-cuda}
+      RETRIEVAL_BATCH_SIZE: ${RETRIEVAL_BATCH_SIZE:-12}
+      RETRIEVAL_MAX_LENGTH: ${RETRIEVAL_MAX_LENGTH:-8192}
+      RETRIEVAL_USE_FP16: ${RETRIEVAL_USE_FP16:-true}
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+    <<: *gpu
+    networks: [rag-net]
+
+  llm:
+    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ipc: host
+    shm_size: "16gb"
+    command:
+      - --model
+      - ${LLM_MODEL:-Qwen/Qwen3-14B-AWQ}
+      - --served-model-name
+      - ${LLM_SERVED_MODEL_NAME:-local-rag-llm}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --max-model-len
+      - "${LLM_MAX_MODEL_LEN:-16384}"
+      - --gpu-memory-utilization
+      - "${LLM_GPU_MEMORY_UTILIZATION:-0.74}"
+      - --max-num-seqs
+      - "${LLM_MAX_NUM_SEQS:-8}"
+      - --dtype
+      - ${LLM_DTYPE:-auto}
+      - --enable-prefix-caching
+      - --disable-log-requests
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      NVIDIA_VISIBLE_DEVICES: all
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "python3 - <<'PY'\nimport urllib.request\nurllib.request.urlopen('http://localhost:8000/health', timeout=5).read()\nPY"]
+      interval: 20s
+      timeout: 10s
+      retries: 90
+      start_period: 180s
+    <<: *gpu
+    networks: [rag-net]
+
+  migrate:
+    build:
+      context: ./services/rag
+    restart: "no"
+    command: ["alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [rag-net]
+
+  api:
+    build:
+      context: ./services/rag
+    restart: unless-stopped
+    command: ["sh", "-c", "uvicorn rag.api:app --host 0.0.0.0 --port 8000 --workers ${API_WORKERS:-2}"]
+    environment:
+      <<: *common-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [rag-net]
+
+  worker:
+    build:
+      context: ./services/rag
+    restart: unless-stopped
+    command: ["python", "-m", "rag.worker"]
+    environment:
+      <<: *common-env
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      retrieval-models:
+        condition: service_healthy
+    networks: [rag-net]
+
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8088}:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [rag-net]
+
+  prometheus:
+    image: prom/prometheus:v3.4.2
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks: [rag-net]
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-grafana-password}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks: [rag-net]
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  qdrant-data:
+  hf-cache:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  rag-net:
+    driver: bridge
