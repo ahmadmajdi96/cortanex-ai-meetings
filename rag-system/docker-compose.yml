@@ -87,7 +87,7 @@ services:
     networks: [rag-net]
 
   qdrant:
-    image: qdrant/qdrant:v1.15.0
+    image: ghcr.io/qdrant/qdrant/qdrant:v1.15.0
     restart: unless-stopped
     environment:
       QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-change-me-qdrant-api-key}
