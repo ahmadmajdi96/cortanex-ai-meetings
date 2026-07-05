@@ -12,6 +12,8 @@ config.prejoinConfig = {
     hideDisplayName: false
 };
 config.requireDisplayName = true;
+config.bosh = `${window.location.origin}/${subdir || ''}http-bind`;
+config.websocket = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/${subdir || ''}xmpp-websocket`;
 config.deploymentInfo = {
     ...(config.deploymentInfo || {}),
     environment: 'cortanex-ai',
