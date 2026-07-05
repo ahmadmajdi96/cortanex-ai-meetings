@@ -10,7 +10,7 @@ if [[ -f .env ]]; then
   set +a
 fi
 
-API_URL="${API_URL:-http://localhost:${GATEWAY_PORT:-8088}}"
+API_URL="${API_URL:-http://localhost:${GATEWAY_PORT:-5001}}"
 API_KEY="${RAG_API_KEY:-${RAG_API_KEYS:-change-me-rag-api-key}}"
 TMP_DOC="$(mktemp /tmp/mohkam-rag-arabic-XXXX.txt)"
 

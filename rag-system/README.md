@@ -33,7 +33,7 @@ docker compose up -d --build
 
 Open:
 
-- API docs: http://localhost:8088/docs
+- API docs: http://localhost:5001/docs
 - Grafana: http://localhost:3001
 - Prometheus: http://localhost:9090
 - MinIO console: http://localhost:9001
@@ -66,7 +66,7 @@ export RAG_API_KEY=change-me-rag-api-key
 Upload documents:
 
 ```bash
-curl -X POST http://localhost:8088/v1/documents \
+curl -X POST http://localhost:5001/v1/documents \
   -H "X-API-Key: $RAG_API_KEY" \
   -F "tenant_id=default" \
   -F 'metadata={"case_id":"case-001","language":"ar"}' \
@@ -76,7 +76,7 @@ curl -X POST http://localhost:8088/v1/documents \
 Ask in Arabic:
 
 ```bash
-curl -X POST http://localhost:8088/v1/query \
+curl -X POST http://localhost:5001/v1/query \
   -H "X-API-Key: $RAG_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
