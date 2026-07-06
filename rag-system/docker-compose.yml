@@ -174,7 +174,7 @@ services:
     build:
       context: ./services/rag
     restart: unless-stopped
-    command: ["sh", "-c", "uvicorn rag.api:app --host 0.0.0.0 --port 8000 --workers ${API_WORKERS:-2}"]
+    command: ["sh", "-c", "python -m uvicorn rag.api:app --host 0.0.0.0 --port 8000 --workers ${API_WORKERS:-2}"]
     environment:
       <<: *common-env
     depends_on:
