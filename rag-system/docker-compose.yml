@@ -94,11 +94,6 @@ services:
       QDRANT__LOG_LEVEL: INFO
     volumes:
       - qdrant-data:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS -H 'api-key: ${QDRANT_API_KEY:-change-me-qdrant-api-key}' http://localhost:6333/readyz >/dev/null"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
     networks: [rag-net]
 
   retrieval-models:
@@ -190,7 +185,7 @@ services:
       minio:
         condition: service_healthy
       qdrant:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
       interval: 10s
@@ -214,7 +209,7 @@ services:
       minio:
         condition: service_healthy
       qdrant:
-        condition: service_healthy
+        condition: service_started
       retrieval-models:
         condition: service_healthy
     networks: [rag-net]

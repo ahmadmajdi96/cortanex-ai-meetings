@@ -15,6 +15,11 @@ COPY pyproject.toml ./
 COPY src ./src
 
 RUN pip install --upgrade pip \
+    && pip install --force-reinstall --no-deps \
+        --index-url https://download.pytorch.org/whl/cu124 \
+        --trusted-host download.pytorch.org \
+        --trusted-host download-r2.pytorch.org \
+        "torch==2.6.0+cu124" \
     && pip install .
 
 EXPOSE 8000
