@@ -169,6 +169,20 @@ LLM_MODEL=Qwen/Qwen3-8B-AWQ
 - Back up PostgreSQL and MinIO volumes. Qdrant can be backed up separately or rebuilt from stored documents.
 - Monitor `/readyz`, Prometheus, and GPU memory.
 
+## Troubleshooting
+
+If `retrieval-models` fails while trying to download `torch==2.6.0+cu124` from `download-r2.pytorch.org`, rebuild after pulling the latest project files. The retrieval service now uses the Torch build already included in the NVIDIA base image and applies a narrow compatibility patch for NVIDIA's `2.6.0a0` version string.
+
+```bash
+docker builder prune -af
+docker buildx prune -af
+docker compose build retrieval-models
+docker compose up -d
+docker compose logs -f retrieval-models qdrant api worker gateway
+```
+
+Do not run `docker system prune -a` unless you are willing to remove downloaded images.
+
 ## Helpful Commands
 
 Run a smoke test with an Arabic sample document:

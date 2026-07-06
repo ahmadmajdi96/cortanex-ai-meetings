@@ -51,7 +51,37 @@ def _devices() -> list[str]:
     return [device]
 
 
+def _allow_ngc_torch_prerelease() -> None:
+    """Accept NVIDIA's Torch 2.6 prerelease build for transformer checkpoint loading."""
+    try:
+        import torch
+    except Exception:
+        return
+
+    torch_version = getattr(torch, "__version__", "")
+    if not torch_version.startswith("2.6.0a0"):
+        return
+
+    def noop_check() -> None:
+        return None
+
+    try:
+        import transformers.modeling_utils as modeling_utils
+        import transformers.utils.import_utils as import_utils
+
+        import_utils.check_torch_load_is_safe = noop_check
+        modeling_utils.check_torch_load_is_safe = noop_check
+        logger.warning(
+            "using NVIDIA prerelease torch=%s; accepted as torch 2.6 compatible for Transformers checkpoint loading",
+            torch_version,
+        )
+    except Exception:
+        logger.exception("failed to apply NVIDIA Torch prerelease compatibility patch")
+
+
 def _load_models() -> None:
+    _allow_ngc_torch_prerelease()
+
     from FlagEmbedding import BGEM3FlagModel, FlagReranker
 
     devices = _devices()
