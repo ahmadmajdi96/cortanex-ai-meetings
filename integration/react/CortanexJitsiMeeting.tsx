@@ -15,6 +15,14 @@ type MeetingTokenResponse = {
   };
 };
 
+type ApprovalRequiredResponse = {
+  approvalRequired: true;
+  message: string;
+  ownerName: string;
+  requestId: string;
+  roomName: string;
+};
+
 type JitsiApi = {
   addListener?: (eventName: string, listener: () => void) => void;
 };
@@ -25,6 +33,7 @@ type CortanexJitsiMeetingProps = {
   subject?: string;
   tokenEndpoint?: string;
   onApiReady?: (api: JitsiApi, token: MeetingTokenResponse) => void;
+  onApprovalRequired?: (approval: ApprovalRequiredResponse) => void;
   onInviteReady?: (inviteUrl: string, token: MeetingTokenResponse) => void;
   onMeetingEnded?: () => void;
 };
@@ -68,18 +77,21 @@ export function CortanexJitsiMeeting({
   appAccessToken,
   meetingId,
   onApiReady,
+  onApprovalRequired,
   onInviteReady,
   onMeetingEnded,
   subject,
   tokenEndpoint = '/api/jitsi/meetings/token'
 }: CortanexJitsiMeetingProps) {
   const [ token, setToken ] = useState<MeetingTokenResponse | null>(null);
+  const [ approval, setApproval ] = useState<ApprovalRequiredResponse | null>(null);
   const [ error, setError ] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
 
     setToken(null);
+    setApproval(null);
     setError(null);
 
     async function loadToken() {
@@ -95,12 +107,21 @@ export function CortanexJitsiMeeting({
         method: 'POST',
         signal: controller.signal
       });
+      const body = await response.json();
+
+      if (response.status === 202 && body.approvalRequired) {
+        const nextApproval = body as ApprovalRequiredResponse;
+
+        setApproval(nextApproval);
+        onApprovalRequired?.(nextApproval);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(`Meeting token request failed: ${response.status}`);
       }
 
-      const nextToken = await response.json() as MeetingTokenResponse;
+      const nextToken = body as MeetingTokenResponse;
 
       setToken(nextToken);
       onInviteReady?.(nextToken.inviteUrl, nextToken);
@@ -113,7 +134,7 @@ export function CortanexJitsiMeeting({
     });
 
     return () => controller.abort();
-  }, [ appAccessToken, meetingId, onInviteReady, subject, tokenEndpoint ]);
+  }, [ appAccessToken, meetingId, onApprovalRequired, onInviteReady, subject, tokenEndpoint ]);
 
   const configOverwrite = useMemo(() => ({
     defaultLogoUrl: 'images/cortanex-logo.png',
@@ -150,7 +171,7 @@ export function CortanexJitsiMeeting({
   }
 
   if (!token) {
-    return <div aria-busy="true" />;
+    return <div aria-busy={approval ? undefined : true}>{approval?.message}</div>;
   }
 
   return (

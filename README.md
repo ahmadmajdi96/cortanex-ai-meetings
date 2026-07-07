@@ -88,6 +88,15 @@ React app -> Cortanex backend -> token-service -> Jitsi iframe
 
 Do not expose `JWT_APP_SECRET` to React.
 
+When a room already exists, users other than the creator receive `202 Accepted`
+with `approvalRequired: true` instead of a Jitsi JWT. The creator can poll and
+approve join requests through:
+
+```http
+GET /v1/meetings/:roomName/requests
+POST /v1/meetings/:roomName/requests/:requestId/approve
+```
+
 ## Local Test Frontend
 
 Run the full local test stack:
@@ -112,7 +121,7 @@ docker compose --env-file compose.local.env down
 
 ## IP Address Test Access
 
-For a server at `135.181.40.73`, copy the IP example and replace every `replace-this-*` value with generated secrets:
+For the current test server at `70.30.221.109`, copy the IP example and replace every `replace-this-*` value with generated secrets:
 
 ```bash
 cp compose.ip.env.example compose.ip.env
@@ -128,16 +137,16 @@ docker compose --env-file compose.ip.env up -d --build web prosody jicofo jvb to
 Open the test UI:
 
 ```text
-http://135.181.40.73:5174
+http://70.30.221.109:5174
 ```
 
 Open Jitsi directly:
 
 ```text
-https://135.181.40.73:8443
+https://70.30.221.109:8443
 ```
 
-Because this is IP-only HTTPS, the browser will show a certificate warning. Accept it once before using the embedded meeting page. For real users, point a domain such as `meet.cortanexai.com` to `135.181.40.73` and use the production `.env` with Let's Encrypt.
+Because this is IP-only HTTPS, the browser will show a certificate warning. Accept it once before using the embedded meeting page. For real users, point a domain such as `meet.cortanexai.com` to `70.30.221.109` and use the production `.env` with Let's Encrypt.
 
 Open these firewall ports on the server:
 

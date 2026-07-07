@@ -9,11 +9,12 @@ import {
   MonitorUp,
   Play,
   RefreshCw,
+  ShieldCheck,
   User,
   Users,
   Video
 } from 'lucide-react';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import './styles.css';
 
 type MeetingTokenResponse = {
@@ -22,11 +23,32 @@ type MeetingTokenResponse = {
   inviteUrl: string;
   jwt: string;
   meetingUrl: string;
+  owner: boolean;
   publicUrl: string;
   roomName: string;
   userInfo: {
     displayName: string;
     email?: string;
+  };
+};
+
+type ApprovalPendingResponse = {
+  approvalRequired: true;
+  message: string;
+  ownerName: string;
+  requestId: string;
+  roomName: string;
+};
+
+type ApprovalRequest = {
+  createdAt: string;
+  id: string;
+  roomName: string;
+  status: 'pending' | 'approved';
+  user: {
+    email?: string;
+    id: string;
+    name: string;
   };
 };
 
@@ -39,6 +61,14 @@ type DemoUser = {
 };
 
 const tokenEndpoint = import.meta.env.VITE_TOKEN_ENDPOINT || '/api/jitsi/meetings/token';
+
+function userIdFromEmail(email: string) {
+  return email
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'demo-user';
+}
 
 function initialRoom() {
   const params = new URLSearchParams(window.location.search);
@@ -55,7 +85,7 @@ function initialRoom() {
 function App() {
   const [ demoUser, setDemoUser ] = useState<DemoUser>({
     email: 'ahmad@cortanexai.com',
-    id: 'demo-ahmad',
+    id: userIdFromEmail('ahmad@cortanexai.com'),
     name: 'Ahmad Salameh',
     org: 'cortanex',
     role: 'host'
@@ -64,8 +94,14 @@ function App() {
   const [ subject, setSubject ] = useState('Cortanex AI test meeting');
   const [ meeting, setMeeting ] = useState<MeetingTokenResponse | null>(null);
   const [ isLoading, setIsLoading ] = useState(false);
+  const [ pendingApproval, setPendingApproval ] = useState<ApprovalPendingResponse | null>(null);
+  const [ approvalRequests, setApprovalRequests ] = useState<ApprovalRequest[]>([]);
+  const [ approvingRequestId, setApprovingRequestId ] = useState('');
   const [ error, setError ] = useState('');
   const [ copied, setCopied ] = useState('');
+  const meetingsEndpoint = useMemo(() => (
+    tokenEndpoint.replace(/\/token\/?$/, '').replace(/\/+$/, '')
+  ), []);
 
   const appInviteUrl = useMemo(() => {
     const url = new URL(window.location.href);
@@ -77,8 +113,35 @@ function App() {
     return url.toString();
   }, [ meeting?.roomName, meetingId ]);
 
+  function demoHeaders() {
+    return {
+      'x-demo-user-email': demoUser.email,
+      'x-demo-user-id': demoUser.id,
+      'x-demo-user-name': demoUser.name,
+      'x-demo-user-org': demoUser.org,
+      'x-demo-user-role': demoUser.role
+    };
+  }
+
+  async function loadApprovalRequests(roomName = meeting?.roomName) {
+    if (!roomName) {
+      return;
+    }
+
+    const response = await fetch(`${meetingsEndpoint}/${encodeURIComponent(roomName)}/requests`, {
+      headers: demoHeaders()
+    });
+    const body = await response.json();
+
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+
+    setApprovalRequests(body.requests || []);
+  }
+
   async function startMeeting(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
+    event?.preventDefault?.();
     setIsLoading(true);
     setError('');
     setCopied('');
@@ -91,16 +154,22 @@ function App() {
         }),
         headers: {
           'content-type': 'application/json',
-          'x-demo-user-email': demoUser.email,
-          'x-demo-user-id': demoUser.id,
-          'x-demo-user-name': demoUser.name,
-          'x-demo-user-org': demoUser.org,
-          'x-demo-user-role': demoUser.role
+          ...demoHeaders()
         },
         method: 'POST'
       });
 
       const body = await response.json();
+
+      if (response.status === 202 && body.approvalRequired) {
+        const nextPending = body as ApprovalPendingResponse;
+
+        setPendingApproval(nextPending);
+        setMeeting(null);
+        setApprovalRequests([]);
+        window.history.replaceState(null, '', `/meetings/${encodeURIComponent(nextPending.roomName)}`);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(body.error || `Request failed with ${response.status}`);
@@ -109,6 +178,7 @@ function App() {
       const nextMeeting = body as MeetingTokenResponse;
 
       setMeeting(nextMeeting);
+      setPendingApproval(null);
       window.history.replaceState(null, '', `/meetings/${encodeURIComponent(nextMeeting.roomName)}`);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Unable to create the meeting');
@@ -117,10 +187,69 @@ function App() {
     }
   }
 
+  async function approveRequest(requestId: string) {
+    const roomName = meeting?.roomName;
+
+    if (!roomName) {
+      return;
+    }
+
+    setApprovingRequestId(requestId);
+    setError('');
+
+    try {
+      const response = await fetch(
+        `${meetingsEndpoint}/${encodeURIComponent(roomName)}/requests/${encodeURIComponent(requestId)}/approve`,
+        {
+          headers: demoHeaders(),
+          method: 'POST'
+        }
+      );
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || `Request failed with ${response.status}`);
+      }
+
+      await loadApprovalRequests(roomName);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to approve the request');
+    } finally {
+      setApprovingRequestId('');
+    }
+  }
+
   async function copyValue(label: string, value: string) {
     await navigator.clipboard.writeText(value);
     setCopied(label);
   }
+
+  useEffect(() => {
+    if (!meeting?.roomName || !meeting.owner) {
+      setApprovalRequests([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function pollRequests() {
+      try {
+        await loadApprovalRequests(meeting?.roomName);
+      } catch (nextError) {
+        if (!cancelled) {
+          setError(nextError instanceof Error ? nextError.message : 'Unable to load join requests');
+        }
+      }
+    }
+
+    void pollRequests();
+    const intervalId = window.setInterval(pollRequests, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [ demoUser.id, demoUser.role, meeting?.owner, meeting?.roomName ]);
 
   return (
     <main className="appShell">
@@ -166,7 +295,11 @@ function App() {
             <input
               type="email"
               value={demoUser.email}
-              onChange={event => setDemoUser(user => ({ ...user, email: event.target.value }))}
+              onChange={event => setDemoUser(user => ({
+                ...user,
+                email: event.target.value,
+                id: userIdFromEmail(event.target.value)
+              }))}
               required
             />
           </label>
@@ -243,6 +376,54 @@ function App() {
             </p>
           ) : null}
         </section>
+
+        {pendingApproval ? (
+          <section className="approvalPanel">
+            <div className="panelTitle">
+              <ShieldCheck size={18} />
+              <h2>Host Approval</h2>
+            </div>
+            <p className="approvalCopy">
+              Request sent to {pendingApproval.ownerName}. You can join after approval.
+            </p>
+            <button className="secondaryButton" disabled={isLoading} onClick={() => startMeeting()} type="button">
+              {isLoading ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+              Check Approval
+            </button>
+          </section>
+        ) : null}
+
+        {meeting?.owner ? (
+          <section className="approvalPanel">
+            <div className="panelTitle">
+              <ShieldCheck size={18} />
+              <h2>Join Requests</h2>
+            </div>
+            {approvalRequests.length ? (
+              <div className="requestList">
+                {approvalRequests.map(request => (
+                  <div className="requestItem" key={request.id}>
+                    <div>
+                      <strong>{request.user.name}</strong>
+                      <span>{request.user.email || request.user.id}</span>
+                    </div>
+                    <button
+                      className="approveButton"
+                      disabled={approvingRequestId === request.id}
+                      onClick={() => approveRequest(request.id)}
+                      type="button"
+                    >
+                      {approvingRequestId === request.id ? <Loader2 className="spin" size={16} /> : <CheckCircle2 size={16} />}
+                      Approve
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="approvalCopy">No pending requests.</p>
+            )}
+          </section>
+        ) : null}
       </aside>
 
       <section className="meetingPane">
@@ -267,9 +448,9 @@ function App() {
             />
           ) : (
             <div className="emptyState">
-              <Video size={48} />
-              <h2>No Active Meeting</h2>
-              <p>Room token not issued.</p>
+              {pendingApproval ? <ShieldCheck size={48} /> : <Video size={48} />}
+              <h2>{pendingApproval ? 'Waiting For Approval' : 'No Active Meeting'}</h2>
+              <p>{pendingApproval ? pendingApproval.message : 'Room token not issued.'}</p>
             </div>
           )}
         </div>

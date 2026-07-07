@@ -3,6 +3,7 @@ import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 
 const DEFAULT_TOKEN_EXP_SECONDS = 60 * 60 * 2;
+const meetings = new Map();
 
 function getEnv(name, fallback = '') {
     const value = process.env[name];
@@ -99,6 +100,22 @@ function badRequest(message) {
     const error = new Error(message);
 
     error.statusCode = 400;
+
+    return error;
+}
+
+function forbidden(message) {
+    const error = new Error(message);
+
+    error.statusCode = 403;
+
+    return error;
+}
+
+function notFound(message) {
+    const error = new Error(message);
+
+    error.statusCode = 404;
 
     return error;
 }
@@ -276,6 +293,164 @@ function createMeetingToken(user, body = {}) {
     };
 }
 
+function snapshotUser(user) {
+    return {
+        avatar: user.avatar,
+        email: user.email,
+        id: user.id,
+        name: user.name,
+        orgId: user.orgId
+    };
+}
+
+function createMeeting(user, body = {}) {
+    if (!user.isHost) {
+        throw notFound('Meeting has not been started by a host yet');
+    }
+
+    const roomName = buildRoomName(user, body);
+    const meeting = {
+        approvedUserIds: new Set([ user.id ]),
+        createdAt: new Date().toISOString(),
+        owner: snapshotUser(user),
+        requests: new Map(),
+        roomName,
+        subject: firstString(body.subject)
+    };
+
+    meetings.set(roomName, meeting);
+
+    return meeting;
+}
+
+function getMeeting(roomName) {
+    const meeting = meetings.get(roomName);
+
+    if (!meeting) {
+        throw notFound('Meeting not found');
+    }
+
+    return meeting;
+}
+
+function isMeetingOwner(meeting, user) {
+    return meeting.owner.id === user.id;
+}
+
+function serializeApprovalRequest(request) {
+    return {
+        approvedAt: request.approvedAt,
+        createdAt: request.createdAt,
+        id: request.id,
+        roomName: request.roomName,
+        status: request.status,
+        user: request.user
+    };
+}
+
+function createApprovalRequest(meeting, user) {
+    const existing = [ ...meeting.requests.values() ].find(request => request.user.id === user.id);
+
+    if (existing) {
+        if (existing.status !== 'pending') {
+            existing.status = 'pending';
+            existing.createdAt = new Date().toISOString();
+            existing.approvedAt = undefined;
+        }
+
+        return existing;
+    }
+
+    const request = {
+        createdAt: new Date().toISOString(),
+        id: crypto.randomUUID(),
+        roomName: meeting.roomName,
+        status: 'pending',
+        user: snapshotUser(user)
+    };
+
+    meeting.requests.set(request.id, request);
+
+    return request;
+}
+
+function issueMeetingAccess(user, body = {}) {
+    const roomName = buildRoomName(user, body);
+    const meeting = meetings.get(roomName) || createMeeting(user, body);
+    const owner = isMeetingOwner(meeting, user);
+
+    if (owner || meeting.approvedUserIds.has(user.id)) {
+        return {
+            body: {
+                ...createMeetingToken(user, {
+                    ...body,
+                    moderator: owner,
+                    roomName: meeting.roomName
+                }),
+                approvalRequired: false,
+                owner
+            },
+            statusCode: 200
+        };
+    }
+
+    const request = createApprovalRequest(meeting, user);
+
+    return {
+        body: {
+            approvalRequired: true,
+            message: 'Waiting for host approval',
+            ownerName: meeting.owner.name,
+            requestId: request.id,
+            roomName: meeting.roomName
+        },
+        statusCode: 202
+    };
+}
+
+function listMeetingRequests(user, roomName) {
+    const meeting = getMeeting(roomName);
+
+    if (!isMeetingOwner(meeting, user)) {
+        throw forbidden('Only the meeting creator can view join requests');
+    }
+
+    return {
+        requests: [ ...meeting.requests.values() ]
+            .filter(request => request.status === 'pending')
+            .map(serializeApprovalRequest),
+        roomName: meeting.roomName
+    };
+}
+
+function approveMeetingRequest(user, roomName, requestId) {
+    const meeting = getMeeting(roomName);
+
+    if (!isMeetingOwner(meeting, user)) {
+        throw forbidden('Only the meeting creator can approve join requests');
+    }
+
+    const request = meeting.requests.get(requestId);
+
+    if (!request) {
+        throw notFound('Join request not found');
+    }
+
+    request.status = 'approved';
+    request.approvedAt = new Date().toISOString();
+    meeting.approvedUserIds.add(request.user.id);
+
+    return {
+        ok: true,
+        request: serializeApprovalRequest(request),
+        roomName: meeting.roomName
+    };
+}
+
+export function resetMeetingApprovalsForTests() {
+    meetings.clear();
+}
+
 function readBody(request) {
     return new Promise((resolve, reject) => {
         let data = '';
@@ -352,8 +527,30 @@ async function route(request, response) {
     if (request.method === 'POST' && [ '/v1/meetings', '/v1/meetings/token' ].includes(url.pathname)) {
         const user = authenticate(request);
         const body = await readBody(request);
+        const access = issueMeetingAccess(user, body);
 
-        sendJson(response, 200, createMeetingToken(user, body), request);
+        sendJson(response, access.statusCode, access.body, request);
+        return;
+    }
+
+    const listRequestsMatch = url.pathname.match(/^\/v1\/meetings\/([^/]+)\/requests$/);
+
+    if (request.method === 'GET' && listRequestsMatch) {
+        const user = authenticate(request);
+        const roomName = decodeURIComponent(listRequestsMatch[1]);
+
+        sendJson(response, 200, listMeetingRequests(user, roomName), request);
+        return;
+    }
+
+    const approveRequestMatch = url.pathname.match(/^\/v1\/meetings\/([^/]+)\/requests\/([^/]+)\/approve$/);
+
+    if (request.method === 'POST' && approveRequestMatch) {
+        const user = authenticate(request);
+        const roomName = decodeURIComponent(approveRequestMatch[1]);
+        const requestId = decodeURIComponent(approveRequestMatch[2]);
+
+        sendJson(response, 200, approveMeetingRequest(user, roomName, requestId), request);
         return;
     }
 
